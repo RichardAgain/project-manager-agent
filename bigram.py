@@ -32,18 +32,11 @@ def predict_word(token):
     # else:
     #     return None
 
-def predict_next_n_words(start_token, n=30):
-    result = []
-    current_token = start_token
+def predict_next_n_words(input, n=100):
+    encoded = tokenizer.encode(input)
+
+    result = [encoded[-1]]
     for _ in range(n):
-        next_token = predict_word(current_token)
-        if next_token is None:
-            break
+        next_token = predict_word(result[-1])
         result.append(next_token)
-        current_token = next_token
-    return result
-
-input = tokenizer.encode("hola como")
-tokens = predict_next_n_words(input[-1])
-
-print(tokenizer.decode(tokens))
+    return tokenizer.decode(result)
