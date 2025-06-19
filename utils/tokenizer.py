@@ -7,7 +7,7 @@ class SimpleTokenizerV1:
     
     def encode(self, text: str):
         preprocessed = re.split(r'([-,.:;¿?_¡!«»"()\']|--|\s)', text)
-        preprocessed = [item for item in preprocessed if item]
+        preprocessed = [item.strip() for item in preprocessed if item.strip()]
         
         ids = [self.str_to_int[i] for i in preprocessed]
         return ids
@@ -19,7 +19,7 @@ class SimpleTokenizerV1:
 
 def build_vocab(text: str):
     preprocessed = re.split(r'([-,.:;¿?_¡!«»"()\']|--|\s)', text)
-    preprocessed = [item for item in preprocessed if item]
+    preprocessed = [item.strip() for item in preprocessed if item.strip()]
     
     all_words = sorted(set(preprocessed))
     

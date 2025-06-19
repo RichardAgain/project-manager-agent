@@ -1,101 +1,49 @@
-import torch
-import torch.nn as nn
-from torch.nn import functional as F
-
-# parameters
-batch_size = 32
-block_size = 8
-max_iters = 3000
-eval_interval = 300
-learning_rate = 1e-2
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-eval_inters = 200
-
-torch.manual_seed(1337)
+import random
+from collections import defaultdict
+from utils.tokenizer import SimpleTokenizerV1, build_vocab
 
 with open("input/quijote.txt", "r", encoding="utf-8") as f:
     raw_text = f.read()
+
+vocab = build_vocab(raw_text)
+tokenizer = SimpleTokenizerV1(vocab)
+
+bigram_model = defaultdict(lambda: defaultdict(lambda: 0))
+
+text = tokenizer.encode(raw_text)
+
+for i in range(1, len(text)):
+    bigram_model[text[i-1]][text[i]] += 1 
+
+def predict_word(token):
+    next_word = bigram_model[token]
     
-chars = sorted(set(raw_text))
-vocab_size = len(chars)
+    words = list(next_word.keys())
+    weights = list(next_word.values())
 
-string_to_int = { c:i for i, c in enumerate(chars) }
-int_to_string = { i:c for i, c in enumerate(chars) }
-encode = lambda strings : [string_to_int[c] for c in strings]
-decode = lambda ints : ''.join([int_to_string[i] for i in ints])
-
-data = torch.tensor(encode(raw_text), dtype=torch.long)
-n = int(0.9*len(data))
-train_data = data[:n]
-val_data = data[n:]
-
-def get_batch(split):
-   data = train_data if split == "train" else val_data
-   ix = torch.randint(len(data) - block_size, (batch_size,)) 
-   x = torch.stack([data[i:i+block_size] for i in ix])
-   y = torch.stack([data[i+1:i+block_size+1] for i in ix])
-   x, y = x.to(device), y.to(device)
-   return x, y
-
-@torch.no_grad()
-def estimate_loss():
-    out = {}
-    model.eval()
-    for split in ['train', 'val']:
-        losses = torch.zeros(eval_inters)
-        for k in range(eval_inters):
-            X, Y = get_batch(split)
-            logits, loss = model(X, Y)
-            losses[k] = loss.item()
-        out[split] = losses.mean()
-    model.train()
-    return out
-
-   
-class BigramLanguageModel(nn.Module):
-    def __init__(self, vocab_size):
-        super().__init__()
-        self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
-
-    def forward(self, idx, targets=None):
-        logits = self.token_embedding_table(idx)
-        
-        if targets is None:
-            loss = None
-        else:
-            B, T, C  = logits.shape
-            logits = logits.view(B*T, C)
-            targets = targets.view(B*T)
-            loss = F.cross_entropy(logits, targets)
-        
-        return logits, loss
+    predicted_word = random.choices(words, weights)[0]
     
-    def generate(self, idx, max_new_tokens):
-        for _ in range(max_new_tokens):
-            logits, loss = self(idx)
-            logits = logits[:, -1,:]
-            probs = F.softmax(logits, dim=1)
-            idx_next = torch.multinomial(probs, num_samples=1)
-            idx = torch.cat((idx, idx_next), dim = 1)
-        return idx
+    return predicted_word     
 
-model = BigramLanguageModel(vocab_size)
-m = model.to(device)
+    # if next_word:
+    #     print(next_word)
+    #     predicted_word = max(next_word, key=next_word.get)
+    #     return predicted_word
+    # else:
+    #     return None
 
-optimizer = torch.optim.AdamW(m.parameters(), lr=learning_rate)
+def predict_next_n_words(start_token, n=30):
+    result = []
+    current_token = start_token
+    for _ in range(n):
+        next_token = predict_word(current_token)
+        if next_token is None:
+            break
+        result.append(next_token)
+        current_token = next_token
+    return result
 
-for iter in range (max_iters):
-    xb, yb = get_batch('train')
+input = tokenizer.encode("hola como")
+tokens = predict_next_n_words(input[-1])
 
-    if iter % eval_interval == 0:
-        losses = estimate_loss()
-        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-    
-    #evaluate the loss
-    logits, loss = m(xb, yb)
-    optimizer.zero_grad(set_to_none=True)
-    loss.backward()
-    optimizer.step()
-
-context = torch.zeros((1,1), dtype=torch.long)
-print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+print(tokenizer.decode(tokens))
