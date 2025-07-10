@@ -1,9 +1,9 @@
 import streamlit as st
 import shelve
 
-from bigram import predict_next_n_words
+from src.deepseek import call_deepseek_api
 
-st.title("Quijote Bigram")
+st.title("Tali Chatbot")
 
 USER_AVATAR = "👤"
 BOT_AVATAR = "🔥"
@@ -43,7 +43,7 @@ if prompt := st.chat_input("Escribe algo..."):
         st.markdown(prompt)
 
     # Generate bot response using bigram model
-    bot_response = predict_next_n_words(prompt, n=100)
+    bot_response = call_deepseek_api(prompt)
     with st.chat_message("assistant", avatar=BOT_AVATAR):
         st.markdown(bot_response)
     st.session_state.messages.append({"role": "assistant", "content": bot_response})
